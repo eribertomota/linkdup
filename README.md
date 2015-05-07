@@ -9,7 +9,7 @@ This is the main differential of the linkdup. However, it can create absolute
 links too, as the most similar commands.
 
 Optionally, linkdup allows recursive searches and can set a maximum file size to
-analize. The link creation is optional; without this resource, linkdup will show
+analyze. The link creation is optional; without this resource, linkdup will show
 the duplicated files and exit.
 
 ## Syntax
