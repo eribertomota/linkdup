@@ -2,8 +2,11 @@
 
 * Added SHA256 as optional hash.
 * Added the max file size control.
-* Dropped the hardlink idea. The main goal is symbolic relative links. There
-  are several options for hardlinks, as rdfind.
+* Added the Makefile.
+* Added a manpage.
+* Dropped the hardlink idea. The main goal is symbolic relative links.
+  There are several options for hardlinks, as rdfind.
+* Written the README.md.
 
 2015-05-06 - 0.1
 
