@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="0.1"
+VERSION="0.2"
 COPYRIGHT_YEARS="2015"
 
 # linkdup - create links between duplicate files
@@ -37,19 +37,28 @@ COPYRIGHT_YEARS="2015"
 #############################
 
 usage() {
-    printf "\nlinkdup - create links between duplicate files\n\n"
-    printf "Usage: linkdup [-h | --help] [-v] [-r] [-s] -d DIRECTORY\n\n"
-    printf "  -h, --help\t Show this help.\n"
-    printf "  -V\t\t Show version.\n"
-    printf "  -v\t\t Verbose. Works with -s, -S or -H only.\n"
-    printf "  -r\t\t Recursive.\n"
-    printf "  -s\t\t Create relative symlinks. Do not use with -S or -H.\n"
-    printf "  -S\t\t Create absolute symlinks. Do not use with -s or -H.\n"
-    printf "  -H\t\t Create hardlinks. Do not use with -s or -S. (not implemented)\n"
-    printf "    \t\t Note that hardlinks can not be relative.\n"
-    printf "  -d DIRECTORY\t Directory to be inspected. This option is mandatory.\n\n"
-    printf "Without the -s or -H options, linkdup will only show the duplicate files.\n\n"
-    printf "Example: linkdup -r -s -d /test\n\n"
+cat << EOT
+
+linkdup - create links between duplicate files
+
+Usage: linkdup [-h|--help] [-V] [-v] [-r] [-s|-S] [-2] -d DIRECTORY
+
+  -h, --help    Show this help.
+  -V            Show version.
+  -v            Verbose. Works with -s or -S only.
+  -r            Recursive.
+  -s            Create relative symlinks. Do not use with -S.
+  -S            Create absolute symlinks. Do not use with -s.
+  -2            Use SHA256 hash instead of MD5 (MD5 is default, is faster).
+  -l SIZE       The max file size used in search. Can be used pure bytes or
+                'k' for kilobyte, 'm' for megabytes and 'g' for gigabytes.
+  -d DIRECTORY  Directory to be inspected. This option is MANDATORY.
+
+Without the -s or -S options, linkdup will only show the duplicate files.
+
+Example: linkdup -r -s -d /test
+
+EOT
 }
 
 
@@ -81,9 +90,14 @@ makelinks() {
 ############################
 
 showversion() {
-    printf "\nlinkdup $VERSION\n"
-    printf "Copyright (C) $COPYRIGHT_YEARS Joao Eriberto Mota Filho <eriberto@debian.org>\n\n"
-    printf "This code is under BSD-3-Clause license.\n\n"
+cat << EOT
+
+linkdup $VERSION
+Copyright (C) $COPYRIGHT_YEARS Joao Eriberto Mota Filho <eriberto@debian.org>
+
+This code is under BSD-3-Clause license.
+
+EOT
 }
 
 
@@ -93,10 +107,11 @@ showversion() {
 
 ASYMLINK=0
 DIRECTORY=""
-HARDLINK=0
+HASH="md5sum"
 MAXDEPTH=1
 OPTIONS=""
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
+SIZECONTROL=0
 SYMLINK=0
 TMPFILE=/tmp/linkdup-$(date '+%s')
 VERBOSE=0
@@ -110,15 +125,17 @@ VERBOSE=0
 tmpremove
 
 # The options check
-while getopts VvrsSd: OPT
+while getopts VvrsS2d: OPT
 do
     case $OPT in
     V) showversion; exit;;
     v) VERBOSE="-v";;
     r) MAXDEPTH=1000;;
-    d) DIRECTORY=$OPTARG;;
     s) SYMLINK=1;;
     S) ASYMLINK=1;;
+    2) HASH="sha256sum";;
+    l) SIZECONTROL=1; SIZE=$OPTARG;;
+    d) DIRECTORY=$OPTARG;;
     *) usage; exit;;
     esac
 done
@@ -132,20 +149,22 @@ done
 # Directory not found
 [ -d "$DIRECTORY" ] || { echo "linkdup: directory $DIRECTORY not found."; exit; }
 
-# Conflict between -s, -S and -H options
-COUNTLINK=$(($SYMLINK+$HARDLINK+$ASYMLINK))
-[ $COUNTLINK -gt 1 ] && { echo "linkdup: -s, -S and -H options can not be used at the same time."; exit; }
+# Conflict between -s and -S options
+COUNTLINK=$(($SYMLINK+$ASYMLINK))
+[ $COUNTLINK -gt 1 ] && { echo "linkdup: -s and -S options can not be used at the same time."; exit; }
 
+# Check size
+[ $SIZECONTROL = "1" -a -z "$SIZE" ] && { echo "linkdup: you must provide a maximum size in -l option."; exit; }
 
 ###############################
 ### Search for duplicate files
 ###############################
 
-# Calculate MD5 hashes
-find $DIRECTORY -type f -maxdepth $MAXDEPTH -exec md5sum {} 2> /dev/null \; > $TMPFILE-list
+# Calculate hashes
+find $DIRECTORY -type f -maxdepth $MAXDEPTH -exec $HASH {} 2> /dev/null \; > $TMPFILE-list
 cat $TMPFILE-list | cut -d" " -f1 | sort | uniq -d > $TMPFILE-duphash
 
-# No results for all methods (-s, -S, -H)
+# No results for all methods (-s, -S)
 [ -s $TMPFILE-duphash ] || { echo "No duplicate files found."; { [ $MAXDEPTH = "1" ] && echo "Try to use -r."; }; exit; }
 
 # Duplicate files
@@ -163,12 +182,12 @@ done
 #################
 
 # If will show files only...
-[ $SYMLINK = "0" -a $HARDLINK = "0" -a $ASYMLINK = "0" ] && { printf "\nDuplicate files:\n\n" ; }
+[ $SYMLINK = "0" -a $ASYMLINK = "0" ] && { printf "\nDuplicate files:\n\n" ; }
 
 for FILE in $TMPFILE-dup-*
 do
     # Only show files
-    [ $SYMLINK = "0" -a $HARDLINK = "0" -a $ASYMLINK = "0" ] && { echo "---" ; cat $FILE; }
+    [ $SYMLINK = "0" -a $ASYMLINK = "0" ] && { echo "---" ; cat $FILE; }
 
     # Make relative symlinks
     [ $SYMLINK = "1" ] && { OPTIONS="-sfr"; makelinks; }

@@ -1,3 +1,10 @@
-2015-05-07 - 0.1
+2015-05-07 - 0.2
+
+* Added SHA256 as optional hash.
+* Added the max file size control.
+* Dropped the hardlink idea. The main goal is symbolic relative links. There
+  are several options for hardlinks, as rdfind.
+
+2015-05-06 - 0.1
 
 * Initial version.
