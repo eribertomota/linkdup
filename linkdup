@@ -1,0 +1,185 @@
+#!/bin/sh
+
+VERSION="0.1"
+COPYRIGHT_YEARS="2015"
+
+# linkdup - create links between duplicate files
+#
+# Copyright (C) 2015 Joao Eriberto Mota Filho <eriberto@debian.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of the author nor the names of its contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+
+#############################
+### Function to show the help
+#############################
+
+usage() {
+    printf "\nlinkdup - create links between duplicate files\n\n"
+    printf "Usage: linkdup [-h | --help] [-v] [-r] [-s] -d DIRECTORY\n\n"
+    printf "  -h, --help\t Show this help.\n"
+    printf "  -V\t\t Show version.\n"
+    printf "  -v\t\t Verbose. Works with -s, -S or -H only.\n"
+    printf "  -r\t\t Recursive.\n"
+    printf "  -s\t\t Create relative symlinks. Do not use with -S or -H.\n"
+    printf "  -S\t\t Create absolute symlinks. Do not use with -s or -H.\n"
+    printf "  -H\t\t Create hardlinks. Do not use with -s or -S. (not implemented)\n"
+    printf "    \t\t Note that hardlinks can not be relative.\n"
+    printf "  -d DIRECTORY\t Directory to be inspected. This option is mandatory.\n\n"
+    printf "Without the -s or -H options, linkdup will only show the duplicate files.\n\n"
+    printf "Example: linkdup -r -s -d /test\n\n"
+}
+
+
+#######################################
+### Function to remove any old tmp file
+#######################################
+
+tmpremove() {
+    find /tmp -maxdepth 1 -type f -name 'linkdup-[0-9]*' -exec rm -f {} \;
+}
+
+
+############################
+### Function to create links
+############################
+
+makelinks() {
+    MAINFILE=$(head -n 1 $FILE | tr -s " " | cut -d" " -f2)
+
+    for TARGET in $(tail -n +2 $FILE | tr -s " " | cut -d" " -f2)
+    do
+      ln $OPTIONS $VERBOSE $MAINFILE $TARGET
+    done
+}
+
+
+############################
+### Function to show version
+############################
+
+showversion() {
+    printf "\nlinkdup $VERSION\n"
+    printf "Copyright (C) $COPYRIGHT_YEARS Joao Eriberto Mota Filho <eriberto@debian.org>\n\n"
+    printf "This code is under BSD-3-Clause license.\n\n"
+}
+
+
+#############
+### Variables
+#############
+
+ASYMLINK=0
+DIRECTORY=""
+HARDLINK=0
+MAXDEPTH=1
+OPTIONS=""
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+SYMLINK=0
+TMPFILE=/tmp/linkdup-$(date '+%s')
+VERBOSE=0
+
+
+#############################
+### First check - valid args?
+#############################
+
+# A good practice
+tmpremove
+
+# The options check
+while getopts VvrsSd: OPT
+do
+    case $OPT in
+    V) showversion; exit;;
+    v) VERBOSE="-v";;
+    r) MAXDEPTH=1000;;
+    d) DIRECTORY=$OPTARG;;
+    s) SYMLINK=1;;
+    S) ASYMLINK=1;;
+    *) usage; exit;;
+    esac
+done
+
+# No options in command line
+[ $1 ] || { usage; exit; }
+
+# No -d option in command line
+[ "$DIRECTORY" ] ||  { echo "linkdup: the -d option is mandatory."; exit; }
+
+# Directory not found
+[ -d "$DIRECTORY" ] || { echo "linkdup: directory $DIRECTORY not found."; exit; }
+
+# Conflict between -s, -S and -H options
+COUNTLINK=$(($SYMLINK+$HARDLINK+$ASYMLINK))
+[ $COUNTLINK -gt 1 ] && { echo "linkdup: -s, -S and -H options can not be used at the same time."; exit; }
+
+
+###############################
+### Search for duplicate files
+###############################
+
+# Calculate MD5 hashes
+find $DIRECTORY -type f -maxdepth $MAXDEPTH -exec md5sum {} 2> /dev/null \; > $TMPFILE-list
+cat $TMPFILE-list | cut -d" " -f1 | sort | uniq -d > $TMPFILE-duphash
+
+# No results for all methods (-s, -S, -H)
+[ -s $TMPFILE-duphash ] || { echo "No duplicate files found."; { [ $MAXDEPTH = "1" ] && echo "Try to use -r."; }; exit; }
+
+# Duplicate files
+for DUP in $(cat $TMPFILE-duphash)
+do
+    SUFFIXH=$(echo $DUP | cut -c -6)
+    GROUPFILE=$TMPFILE-dup-$SUFFIXH
+    > $GROUPFILE
+    cat $TMPFILE-list | grep $DUP >> $GROUPFILE
+done
+
+
+#################
+### Ok, let's go!
+#################
+
+# If will show files only...
+[ $SYMLINK = "0" -a $HARDLINK = "0" -a $ASYMLINK = "0" ] && { printf "\nDuplicate files:\n\n" ; }
+
+for FILE in $TMPFILE-dup-*
+do
+    # Only show files
+    [ $SYMLINK = "0" -a $HARDLINK = "0" -a $ASYMLINK = "0" ] && { echo "---" ; cat $FILE; }
+
+    # Make relative symlinks
+    [ $SYMLINK = "1" ] && { OPTIONS="-sfr"; makelinks; }
+
+    # Make absolute symlinks
+    [ $ASYMLINK = "1" ] && { OPTIONS="-sf"; makelinks; }
+done
+
+
+######################
+### Removing tmp files
+######################
+
+tmpremove
