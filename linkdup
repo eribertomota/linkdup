@@ -41,7 +41,7 @@ cat << EOT
 
 linkdup - create links between duplicate files
 
-Usage: linkdup [-h|--help] [-V] [-v] [-r] [-s|-S] [-2] -d DIRECTORY
+Usage: linkdup [-h|--help] [-V] [-v] [-r] [-s|-S] [-2] [-l SIZE] -d DIRECTORY
 
   -h, --help    Show this help.
   -V            Show version.
