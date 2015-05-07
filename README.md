@@ -14,6 +14,7 @@ the duplicated files and exit.
 
 ## Syntax
 
+```
 linkdup - create links between duplicate files
 
 Usage: linkdup [-h|--help] [-V] [-v] [-r] [-s|-S] [-2] [-l SIZE] -d DIRECTORY
@@ -32,6 +33,7 @@ Usage: linkdup [-h|--help] [-V] [-v] [-r] [-s|-S] [-2] [-l SIZE] -d DIRECTORY
 Without the -s or -S options, linkdup will only show the duplicate files.
 
 Example: linkdup -r -s -d /test
+```
 
 ## License
 
