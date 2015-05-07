@@ -109,6 +109,7 @@ ASYMLINK=0
 DIRECTORY=""
 HASH="md5sum"
 MAXDEPTH=1
+MAXSIZE=""
 OPTIONS=""
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 SIZECONTROL=0
@@ -125,7 +126,7 @@ VERBOSE=0
 tmpremove
 
 # The options check
-while getopts VvrsS2d: OPT
+while getopts VvrsS2l:d: OPT
 do
     case $OPT in
     V) showversion; exit;;
@@ -155,13 +156,17 @@ COUNTLINK=$(($SYMLINK+$ASYMLINK))
 
 # Check size
 [ $SIZECONTROL = "1" -a -z "$SIZE" ] && { echo "linkdup: you must provide a maximum size in -l option."; exit; }
+[ $SIZECONTROL = "1" -a "$SIZE" ] && { TEST=$(echo "$SIZE" | egrep '^[0-9]+[kMG]?$'); [ ! "$TEST" ] && { echo "linkdup: -l option using a wrong format number."; exit; }; }
+# Define the final maxsize
+[ $SIZECONTROL = "1" -a "$SIZE" ] && MAXSIZE="-size -$SIZE"
+
 
 ###############################
 ### Search for duplicate files
 ###############################
 
 # Calculate hashes
-find $DIRECTORY -type f -maxdepth $MAXDEPTH -exec $HASH {} 2> /dev/null \; > $TMPFILE-list
+find $DIRECTORY -type f -maxdepth $MAXDEPTH $MAXSIZE -exec $HASH {} 2> /dev/null \; > $TMPFILE-list
 cat $TMPFILE-list | cut -d" " -f1 | sort | uniq -d > $TMPFILE-duphash
 
 # No results for all methods (-s, -S)
