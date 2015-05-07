@@ -1,12 +1,13 @@
 # makefile for linkdup
 
 BINDIR=$(DESTDIR)/usr/bin
+EXEC=$(BINDIR)/linkdup
 MANDIR=$(DESTDIR)/usr/share/man/man1
 
 install:
 	[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
 	[ -d $(MANDIR) ] || mkdir -p $(MANDIR)
-	[ -d $(BINDIR)/linkdup ] || { cp linkdup $(BINDIR); cp man/linkdup.1 $(MANDIR); exit; }
+	[ -f "$(EXEC)" ] || { cp linkdup $(BINDIR); chmod 755 $(EXEC); cp man/linkdup.1 $(MANDIR); exit; }
 
 uninstall:
-	[ -f $(BINDIR)/linkdup ] && rm -f $(BINDIR)/linkdup $(MANDIR)/linkdup.1*
+	[ -f "$(EXEC)" ] && rm -f $(BINDIR)/linkdup $(MANDIR)/linkdup.1* || true
